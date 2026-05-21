@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { useGenerationStore } from "../store/generation";
 import { useBoardStore } from "../store/board";
 import { useSettingsStore } from "../store/settings";
+import { useReferencesStore } from "../store/references";
 import { getMediaStatus, mediaUrl, type MediaStatus } from "../api/client";
 import { countryLabel, vibeLabel } from "../constants/character";
 
@@ -390,6 +391,47 @@ export function ResultViewer() {
     openGenerationDialog(newRfId, data?.prompt ?? "");
   }
 
+  // Save the currently-viewed variant to the cross-board Reference
+  // library. Backend POST is idempotent on media_id, so multi-clicking
+  // is safe — we still flip the button to "Saved" for 1.5s for feedback.
+  const [savedFlash, setSavedFlash] = useState(false);
+  const [saving, setSaving] = useState(false);
+
+  async function handleSaveToLibrary() {
+    if (!rfId || !data || !currentMediaId || saving) return;
+    setSaving(true);
+    try {
+      const kind: "image" | "character" | "visual_asset" | "storyboard_shot" =
+        data.type === "Storyboard"
+          ? "storyboard_shot"
+          : data.type === "character"
+            ? "character"
+            : data.type === "visual_asset"
+              ? "visual_asset"
+              : "image";
+      await useReferencesStore.getState().save({
+        media_id: currentMediaId,
+        kind,
+        ai_brief: typeof data.aiBrief === "string" ? data.aiBrief : null,
+        aspect_ratio:
+          typeof data.aspectRatio === "string" ? data.aspectRatio : null,
+        label:
+          typeof data.aiBrief === "string"
+            ? data.aiBrief.slice(0, 80)
+            : `#${data.shortId}`,
+        source_board_id: useBoardStore.getState().boardId,
+        source_node_short_id:
+          typeof data.shortId === "string" ? data.shortId : null,
+      });
+      setSavedFlash(true);
+      setTimeout(() => setSavedFlash(false), 1500);
+    } catch {
+      // Surfaced via store.error
+    } finally {
+      setSaving(false);
+    }
+  }
+
   return (
     <div
       className="result-viewer-backdrop"
@@ -632,6 +674,21 @@ export function ResultViewer() {
               }
             >
               New variant +
+            </button>
+            <button
+              className={
+                "result-viewer__btn result-viewer__btn--save"
+                + (savedFlash ? " result-viewer__btn--saved" : "")
+              }
+              onClick={handleSaveToLibrary}
+              disabled={!currentMediaId || saving}
+              title={
+                !currentMediaId
+                  ? "Wait for the generation to finish"
+                  : "Save this variant to the cross-board Reference library"
+              }
+            >
+              {savedFlash ? "★ Saved" : saving ? "…" : "★ Save to library"}
             </button>
             {projectId ? (
               <a

@@ -1643,13 +1643,13 @@ button:disabled {
   background: var(--accent);
 }
 
-/* "★" overlay — reference-library save button. Sits top-right of the
-   tile (opposite the "Use →" affordance in the bottom-right corner)
-   so the two overlays never overlap. Same hover-reveal pattern. */
+/* "★" overlay — reference-library save button. Sits TOP-LEFT to avoid
+   overlapping the "Use →" pill which is top-right. Both buttons share
+   the same hover-reveal pattern; they never collide visually. */
 .thumbnail-tile__save-btn {
   position: absolute;
   top: 6px;
-  right: 6px;
+  left: 6px;
   width: 24px;
   height: 24px;
   border-radius: 50%;
@@ -1662,7 +1662,7 @@ button:disabled {
   font-size: 13px;
   line-height: 1;
   opacity: 0;
-  transition: opacity 80ms linear, background 80ms linear;
+  transition: opacity 80ms linear, background 80ms linear, color 80ms linear;
   z-index: 2;
 }
 .thumbnail-tile:hover .thumbnail-tile__save-btn,
@@ -1671,8 +1671,9 @@ button:disabled {
   opacity: 1;
 }
 .thumbnail-tile__save-btn:hover {
-  background: rgba(0, 0, 0, 0.85);
-  border-color: var(--accent);
+  background: var(--accent, #7c5cff);
+  border-color: var(--accent, #7c5cff);
+  color: #ffd54a;
 }
 
 /* Inline picker — shown below the tile grid when the upstream has 2+
@@ -3505,6 +3506,23 @@ button:disabled {
 .result-viewer__btn--link {
   background: var(--panel-high);
   color: var(--text);
+}
+
+/* "★ Save to library" — distinct gold border so the user spots it in the
+   action stack (the other action buttons are all neutral grey). */
+.result-viewer__btn--save {
+  border-color: rgba(255, 213, 74, 0.55);
+  color: #ffd54a;
+}
+.result-viewer__btn--save:hover:not(:disabled) {
+  background: rgba(255, 213, 74, 0.12);
+  border-color: #ffd54a;
+}
+.result-viewer__btn--saved,
+.result-viewer__btn--saved:hover {
+  background: #ffd54a;
+  color: #1a1a1a;
+  border-color: #ffd54a;
 }
 
 /* Footer hint */
@@ -5548,24 +5566,44 @@ button:disabled {
   top: 50%;
   right: 0;
   transform: translateY(-50%);
-  width: 24px;
-  height: 64px;
+  width: 28px;
+  height: 72px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  background: var(--panel-high);
-  border: 1px solid var(--border);
+  /* Use the accent gradient so the tab reads as a clear affordance,
+     not a passive bezel. The star pulses gently to draw attention
+     toward the library on first mount. */
+  background: linear-gradient(180deg, var(--accent, #7c5cff), #5a3fd6);
+  border: 1px solid rgba(255, 213, 74, 0.55);
   border-right: none;
-  border-radius: 8px 0 0 8px;
-  color: var(--muted);
-  font-size: 14px;
+  border-radius: 10px 0 0 10px;
+  color: #ffd54a;
+  font-size: 16px;
+  font-weight: 700;
+  cursor: pointer;
+  box-shadow: -2px 2px 8px rgba(124, 92, 255, 0.35);
   z-index: 13;
-  transition: color 80ms ease, border-color 80ms ease, background 80ms ease;
+  transition: color 80ms ease, border-color 80ms ease, background 80ms ease, transform 120ms ease;
 }
 
 .references-panel__toggle-tab:hover {
-  color: var(--text);
-  background: var(--panel-higher);
-  border-color: var(--accent);
+  color: #fff;
+  transform: translateY(-50%) translateX(-2px);
+  border-color: #ffd54a;
+}
+
+/* Subtle attention pulse on the closed tab — runs once on mount per
+   page-load, then settles. Stops on hover to avoid noise during use. */
+@keyframes references-toggle-pulse {
+  0% { box-shadow: -2px 2px 8px rgba(124, 92, 255, 0.35); }
+  50% { box-shadow: -2px 2px 16px rgba(255, 213, 74, 0.65); }
+  100% { box-shadow: -2px 2px 8px rgba(124, 92, 255, 0.35); }
+}
+.references-panel__toggle-tab {
+  animation: references-toggle-pulse 2.4s ease-in-out 2;
+}
+.references-panel__toggle-tab:hover {
+  animation: none;
 }
 
