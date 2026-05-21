@@ -53,25 +53,26 @@ export function buildStoryboardPrompt(
   const t = topic.trim() || "untitled story";
   // Verbose template — earlier short version produced overlapping borders
   // (no clear panel separators) and no per-frame captions, so the result
-  // read like a montage instead of a comic-book storyboard. This version
-  // pins the layout, numbering, and caption rules so each panel is
-  // self-explanatory at a glance.
+  // read like a montage instead of a storyboard. This version pins the
+  // layout, numbering, and caption rules so each panel is self-explanatory
+  // at a glance.
   //
-  // Intentionally NO `Style:` clause — visual style is driven by the
-  // upstream reference nodes (character, visual_asset, image). Locking
-  // in "same art style, color palette, character design" here would
-  // override what the user wired in via refs and made the composite
-  // look generic when no refs were attached.
+  // Intentionally STYLE-NEUTRAL — no medium hints ("comic-book", "manga",
+  // "comic art"), no font hints ("sans-serif"), no palette / cohesion
+  // clauses. Those override the upstream refs (character, visual_asset)
+  // that should drive the visual look, and add noise when no refs are
+  // attached. Only layout / numbering / caption rules remain — those are
+  // the actual non-negotiables for a readable storyboard.
   return [
     `Create a visual storyboard for "${t}" as a SINGLE IMAGE`,
-    `arranged in a ${rows}x${cols} comic-book grid (${rows} rows, ${cols} columns, ${total} panels total).`,
+    `arranged in a ${rows}x${cols} grid (${rows} rows, ${cols} columns, ${total} panels total).`,
     `Each panel illustrates one beat of the story.`,
     `Panels read left-to-right, top-to-bottom in narrative order (1 → ${total}).`,
     `STRICT layout rules:`,
     `  • Clean WHITE GUTTERS between every panel — no overlapping borders, no bleed between scenes.`,
     `  • Each panel is rectangular, identical size, sharply separated from its neighbors.`,
     `  • In the TOP-LEFT corner of every panel, place a small filled CIRCLE with the panel NUMBER (1, 2, 3, …, ${total}) inside it — readable and consistent across all panels.`,
-    `  • BENEATH each panel (outside the picture area, in the white gutter), print a SHORT one-sentence CAPTION describing the action of that beat. Use clean, legible sans-serif text. Captions in the same language as the topic.`,
+    `  • BENEATH each panel (outside the picture area, in the white gutter), print a SHORT one-sentence CAPTION describing the action of that beat. Use clean, legible text. Captions in the same language as the topic.`,
   ].join(" ");
 }
 
