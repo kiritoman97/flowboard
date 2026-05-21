@@ -201,6 +201,12 @@ export function GenerationDialog() {
   const isVideo = targetType === "video";
   const isCharacter = targetType === "character";
   const isStoryboard = targetType === "Storyboard";
+  // Omni Flash is a video model but with image-target semantics: it
+  // takes ingredients (multi reference images), NOT a single i2v start
+  // frame. So the dialog should show the same "Source references" chip
+  // list that image targets use, and hide Veo's source-image selector.
+  const isOmniVideo =
+    isVideo && useSettingsStore((s) => s.videoModel) === "omni_flash";
   // Prompt nodes are text-only — clicking Generate runs auto_prompt
   // synthesis from upstream context and writes the result back to
   // node.data.prompt. No image dispatch, no aspect/variants.
@@ -237,7 +243,10 @@ export function GenerationDialog() {
   // separate list from refSourceNodes; the dialog renders them as a
   // text-only chip alongside image refs so the user can SEE that a
   // Prompt node is influencing the gen.
-  const promptSourceNodes = !isVideo && rfId
+  // Both image targets AND Omni-video targets use the ingredient chip
+  // list (multi-ref upstream → one chip per edge). Veo i2v video has
+  // its own single-source-with-variant-batch picker below.
+  const promptSourceNodes = (!isVideo || isOmniVideo) && rfId
     ? edges
         .filter((e) => e.target === rfId)
         .map((e) => {
@@ -249,7 +258,7 @@ export function GenerationDialog() {
         .filter((entry): entry is NonNullable<typeof entry> => entry !== null)
     : [];
 
-  const refSourceNodes = !isVideo && rfId
+  const refSourceNodes = (!isVideo || isOmniVideo) && rfId
     ? edges
         .filter((e) => e.target === rfId)
         .map((e) => {
@@ -612,9 +621,13 @@ export function GenerationDialog() {
   const isWorking = autoBuilding || nodeLLMBusy;
 
   // Both image and video allow empty prompt — we'll auto-synth on submit.
-  // Video needs at least one selected source variant.
+  // Veo i2v needs at least one selected source variant; Omni Flash
+  // needs at least one ingredient (any upstream image-bearing node).
+  // Other targets just need the LLM not be busy.
   const canGenerate = isCharacter
     ? charGender !== null || charCountry !== null || charExtras.trim().length > 0
+    : isOmniVideo
+    ? refSourceNodes.length > 0 && !isWorking
     : isVideo
     ? selectedSourceIdx.size > 0 && !isWorking
     : !isWorking;
@@ -781,8 +794,10 @@ export function GenerationDialog() {
           </>
         )}
 
-        {/* Source image (video only — i2v, multi-select variants → N videos) */}
-        {isVideo && (
+        {/* Source image — Veo i2v ONLY. Omni Flash uses the ingredient
+            chip list (`refSourceNodes`) above, same shape as image
+            targets. */}
+        {isVideo && !isOmniVideo && (
           <div className="gen-dialog__field">
             <div className="gen-dialog__label-row">
               <span className="gen-dialog__label">
@@ -875,7 +890,9 @@ export function GenerationDialog() {
             Storyboard) AND prompt-text refs. Prompt nodes don't have
             media but their text feeds the auto-prompt synth, so we
             surface them as text chips next to the thumbnails. */}
-        {!isVideo && (refSourceNodes.length > 0 || promptSourceNodes.length > 0) && (
+        {(!isVideo || isOmniVideo)
+          && (refSourceNodes.length > 0 || promptSourceNodes.length > 0)
+          && (
           <div className="gen-dialog__field">
             <span className="gen-dialog__label">
               Source references ({refSourceNodes.length + promptSourceNodes.length})
