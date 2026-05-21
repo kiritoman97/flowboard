@@ -17,28 +17,9 @@ import {
 
 export type { NodeType };
 
-export type NodeStatus = "idle" | "queued" | "running" | "done" | "error" | "partial";
+export type NodeStatus = "idle" | "queued" | "running" | "done" | "error";
 
-// Storyboard — see .omc/plans/storyboard-image-node.md §4.1.
-// Each shot is either a root (parentShotIdx=null → gen_image) or a
-// continuation (parentShotIdx=j<idx → edit_image(base=shots[j].mediaId)).
-// Sibling continuations dispatch in parallel after their parent finishes.
-export type ShotStatus =
-  | "idle"
-  | "queued"
-  | "running"
-  | "done"
-  | "error"
-  | "blocked"; // parent failed → cannot dispatch until parent retried
-
-export interface StoryboardShot {
-  idx: number;
-  prompt: string;
-  parentShotIdx: number | null;
-  mediaId?: string;
-  status: ShotStatus;
-  error?: string;
-}
+export type StoryboardGrid = "2x2" | "3x3";
 
 export interface FlowboardNodeData extends Record<string, unknown> {
   type: NodeType;
@@ -99,10 +80,13 @@ export interface FlowboardNodeData extends Record<string, unknown> {
   charVibe?: string;
   charGender?: string;
   error?: string;
-  // Storyboard-only fields (type === "Storyboard"). See plan §4.1.
-  shots?: StoryboardShot[];
-  shotCount?: number; // 1..8; mirrors shots.length
-  narrativeSeed?: string; // user free-text feeding the planner
+  // Storyboard layout. The Storyboard node is now a thin image-node
+  // wrapper that generates a single composite using a locked prompt
+  // template `Create visual storyboard for "<topic>" as SINGLE IMAGE
+  // arranged in a NxN layout (N rows, N columns)`. Default `3x3` when
+  // missing (true for fresh nodes + legacy pre-1.2.15 nodes whose
+  // multi-shot data is now ignored).
+  storyboardGrid?: StoryboardGrid;
 }
 
 export type FlowNode = Node<FlowboardNodeData>;

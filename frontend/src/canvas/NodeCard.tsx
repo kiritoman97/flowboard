@@ -1421,108 +1421,24 @@ function EditableTextBody({
 }
 
 // ── Storyboard ────────────────────────────────────────────────────────────
-// Plan: .omc/plans/storyboard-image-node.md §5 Phase 4.
-// Renders a horizontal strip of up to 8 tiles. Continuation tiles show
-// a `↩j` badge pointing at their parent shot. Blocked tiles (parent
-// failed) show a lock + the parent index. Failed tiles expose a Retry
-// button that re-dispatches just that shot via retryStoryboardShot.
+// Storyboard is a thin image-node wrapper. It dispatches via the standard
+// `gen_image` handler with a locked prompt template that asks Flow to render
+// the user's topic as a single composite NxN grid (see
+// frontend/src/lib/storyboardPrompt.ts). Rendering reuses `ImageBody` — up
+// to 4 composite variants in the tile grid — with a small `3×3` / `2×2`
+// corner badge as a reminder of the current layout.
 
 function StoryboardBody({ rfId, data }: { rfId: string; data: FlowboardNodeData }) {
-  const shots = Array.isArray(data.shots) ? data.shots : [];
-  const isProcessing = data.status === "queued" || data.status === "running";
-  const cols = Math.min(Math.max(shots.length || 1, 1), 4);
-
-  if (shots.length === 0) {
-    return (
-      <div className="storyboard-empty">
-        <span style={{ opacity: 0.6 }}>
-          Click Generate to plan {data.shotCount ?? 4} narrative shots.
-        </span>
-      </div>
-    );
-  }
-
-  function onRetry(idx: number) {
-    useGenerationStore.getState().retryStoryboardShot(rfId, idx);
-  }
-
+  const grid = data.storyboardGrid === "2x2" ? "2×2" : "3×3";
   return (
-    <div
-      className="thumbnail-grid"
-      style={{ gridTemplateColumns: `repeat(${cols}, 1fr)` }}
-    >
-      {shots.map((shot) => {
-        const tileProcessing =
-          isProcessing &&
-          (shot.status === "queued" || shot.status === "running");
-        const isError = shot.status === "error";
-        const isBlocked = shot.status === "blocked";
-        const onClick = shot.mediaId
-          ? () =>
-              useGenerationStore.getState().openResultViewer(rfId, shot.idx)
-          : undefined;
-        return (
-          <div key={shot.idx} className="storyboard-tile-wrap">
-            <ImageTile
-              rfId={rfId}
-              mediaId={shot.mediaId}
-              isProcessing={tileProcessing}
-              alt={`Shot ${shot.idx + 1}`}
-              onClick={onClick}
-              onSaveToLibrary={
-                shot.mediaId
-                  ? () =>
-                      saveTileToLibrary({
-                        mediaId: shot.mediaId as string,
-                        nodeType: data.type,
-                        data,
-                      })
-                  : undefined
-              }
-            />
-            {/* Continuation badge: shows parent index when this shot
-                edits from another shot. Roots have no badge. */}
-            {shot.parentShotIdx !== null && shot.parentShotIdx !== undefined && (
-              <span
-                className="storyboard-badge storyboard-badge--cont"
-                title={`Continues from shot ${shot.parentShotIdx + 1}`}
-              >
-                ↩{shot.parentShotIdx + 1}
-              </span>
-            )}
-            {/* Blocked: parent failed, can't dispatch until parent retried. */}
-            {isBlocked && (
-              <span
-                className="storyboard-badge storyboard-badge--blocked"
-                title={shot.error || "blocked"}
-              >
-                🔒
-              </span>
-            )}
-            {/* Error: tile shows a tiny Retry button so the user doesn't
-                have to leave the canvas to recover. */}
-            {isError && !tileProcessing && (
-              <button
-                type="button"
-                className="storyboard-retry-btn"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  onRetry(shot.idx);
-                }}
-                title={shot.error ? `Retry: ${shot.error}` : "Retry shot"}
-              >
-                ↻
-              </button>
-            )}
-            {/* Shot index pill (always shown) — small bottom-left label
-                so the narrative order stays readable even when tiles are
-                skeletons. */}
-            <span className="storyboard-badge storyboard-badge--idx">
-              {shot.idx + 1}
-            </span>
-          </div>
-        );
-      })}
+    <div className="storyboard-wrap">
+      <span
+        className="storyboard-grid-badge"
+        title={`Composite layout: ${grid}`}
+      >
+        {grid}
+      </span>
+      <ImageBody rfId={rfId} data={data} />
     </div>
   );
 }

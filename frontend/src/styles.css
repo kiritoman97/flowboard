@@ -5282,68 +5282,29 @@ button:disabled {
 }
 
 /* ── Storyboard ─────────────────────────────────────────────────────── */
-.storyboard-empty {
-  padding: 8px 4px;
-  font-size: 11px;
-  text-align: center;
-}
-
-.storyboard-tile-wrap {
+/* Storyboard is now a thin image-node wrapper (single composite NxN grid
+   rendered as ONE image by Flow). We reuse ImageBody for the tile grid
+   and overlay a small corner badge labelling the chosen layout (3×3 /
+   2×2). The multi-shot continuity-tree variant has been retired. */
+.storyboard-wrap {
   position: relative;
 }
 
-.storyboard-badge {
+.storyboard-grid-badge {
   position: absolute;
+  top: 4px;
+  right: 4px;
+  z-index: 2;
+  padding: 2px 6px;
   font-size: 10px;
   line-height: 1;
-  padding: 2px 4px;
-  border-radius: 4px;
-  background: rgba(0, 0, 0, 0.55);
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  border-radius: 6px;
+  background: rgba(0, 0, 0, 0.7);
   color: #fff;
   pointer-events: none;
   font-variant-numeric: tabular-nums;
-}
-
-.storyboard-badge--idx {
-  bottom: 4px;
-  left: 4px;
-  background: rgba(0, 0, 0, 0.7);
-}
-
-.storyboard-badge--cont {
-  top: 4px;
-  left: 4px;
-  background: var(--accent, #3b82f6);
-  color: #fff;
-}
-
-.storyboard-badge--blocked {
-  top: 4px;
-  right: 4px;
-  background: rgba(180, 60, 60, 0.85);
-  font-size: 11px;
-}
-
-.storyboard-retry-btn {
-  position: absolute;
-  bottom: 4px;
-  right: 4px;
-  width: 22px;
-  height: 22px;
-  border-radius: 50%;
-  border: 1px solid var(--border);
-  background: rgba(0, 0, 0, 0.65);
-  color: #fff;
-  cursor: pointer;
-  display: grid;
-  place-items: center;
-  font-size: 13px;
-  line-height: 1;
-}
-
-.storyboard-retry-btn:hover {
-  background: rgba(0, 0, 0, 0.85);
-  border-color: var(--accent);
 }
 
 /* ── References panel (right sidebar) ──────────────────────────────────── */

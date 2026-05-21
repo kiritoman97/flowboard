@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useGenerationStore } from "../store/generation";
-import { useBoardStore } from "../store/board";
+import { useBoardStore, type StoryboardGrid } from "../store/board";
+import { buildStoryboardPrompt } from "../lib/storyboardPrompt";
 import {
   useSettingsStore,
   OMNI_FLASH_CREDIT_COST,
@@ -154,17 +155,16 @@ export function GenerationDialog() {
   const openDialog = useGenerationStore((s) => s.openDialog);
   const closeGenerationDialog = useGenerationStore((s) => s.closeGenerationDialog);
   const dispatchGeneration = useGenerationStore((s) => s.dispatchGeneration);
-  const dispatchStoryboard = useGenerationStore((s) => s.dispatchStoryboard);
   const nodes = useBoardStore((s) => s.nodes);
 
   const [prompt, setPrompt] = useState(openDialog.prompt);
   const [aspectRatio, setAspectRatio] = useState<AspectKey>("IMAGE_ASPECT_RATIO_LANDSCAPE");
   const [variants, setVariants] = useState(1);
   const [camera, setCamera] = useState<CameraKey>("static");
-  // Storyboard shot count (1..8). Independent from `variants` because
-  // the storyboard request maps to a continuity tree, not pose-distinct
-  // variants of one image. Default 4 (one Phase A batch, no Phase B).
-  const [shotCount, setShotCount] = useState(4);
+  // Storyboard layout. The node dispatches via the standard image
+  // handler with a locked template prompt wrapping the user's topic
+  // into a single composite NxN grid. See lib/storyboardPrompt.ts.
+  const [storyboardGrid, setStoryboardGrid] = useState<StoryboardGrid>("3x3");
 
   // Character builder state — only used when targetType === "character".
   const [charGender, setCharGender] = useState<GenderKey | null>(null);
@@ -335,6 +335,15 @@ export function GenerationDialog() {
       setAspectRatio(nextAspect);
       setVariants(1);
       setCamera("static");
+      // Hydrate storyboard grid from existing node data when reopening
+      // (or fall back to 3x3 for fresh nodes + legacy pre-1.2.15 nodes).
+      const openNodeData = useBoardStore
+        .getState()
+        .nodes.find((n) => n.id === rfId)?.data;
+      const savedGrid = openNodeData?.storyboardGrid;
+      setStoryboardGrid(
+        savedGrid === "2x2" || savedGrid === "3x3" ? savedGrid : "3x3",
+      );
       setCharGender(null);
       setCharCountry(null);
       setCharVibe("clean");
@@ -473,15 +482,28 @@ export function GenerationDialog() {
       return;
     }
     if (isStoryboard) {
-      // For Storyboard, the prompt textarea is the narrative seed
-      // ("đi du lich + show off áo", "unbox + try-on at home", …).
-      // The planner LLM expands it into N per-shot beats with
-      // continuity hints. Empty seed is allowed — planner will improvise
-      // from upstream refs alone.
-      dispatchStoryboard(rfId, {
-        shotCount,
-        narrativeSeed: prompt,
+      // Storyboard is a thin image-node wrapper. The user's prompt
+      // textarea is the TOPIC; we wrap it in the locked template and
+      // dispatch via the standard image path — Flow renders a single
+      // composite NxN grid that visually narrates the topic.
+      const wrapped = buildStoryboardPrompt(prompt, storyboardGrid);
+      // Persist the chosen grid + topic on the node so reload shows
+      // the same settings and `StoryboardBody` can render the grid badge.
+      useBoardStore.getState().updateNodeData(rfId, {
+        storyboardGrid,
+        aiBrief: prompt,
+      });
+      const dbId = parseInt(rfId, 10);
+      if (!isNaN(dbId)) {
+        patchNode(dbId, {
+          data: { storyboardGrid, aiBrief: prompt },
+        }).catch(() => {});
+      }
+      dispatchGeneration(rfId, {
+        prompt: wrapped,
         aspectRatio,
+        kind: "image",
+        variantCount: variants,
       });
       closeGenerationDialog();
       return;
@@ -1084,9 +1106,11 @@ export function GenerationDialog() {
           </div>
         )}
 
-        {/* Variants stepper — image only (not storyboard, prompt; video
-            has its own one-clip-per-source-variant flow above). */}
-        {!isVideo && !isStoryboard && !isPrompt && (
+        {/* Variants stepper — image + storyboard (storyboard reuses the
+            image dispatch path; up to 4 composite variants per request).
+            Hidden for video (its own one-clip-per-source-variant flow
+            above) and prompt nodes. */}
+        {!isVideo && !isPrompt && (
           <div className="gen-dialog__field">
             <span className="gen-dialog__label">Variants</span>
             <div className="variants-stepper">
@@ -1112,33 +1136,34 @@ export function GenerationDialog() {
           </div>
         )}
 
-        {/* Shots stepper — storyboard only. 1..8 covers the continuity-tree
-            range; planner decides how many roots vs continuations. */}
+        {/* Grid radio — storyboard only. 2x2 (4 panels) or 3x3 (9 panels).
+            Drives the locked prompt template that wraps the user's topic. */}
         {isStoryboard && (
           <div className="gen-dialog__field">
-            <span className="gen-dialog__label">Shots</span>
-            <div className="variants-stepper">
-              <button
-                type="button"
-                disabled={shotCount <= 1}
-                aria-label="Decrease shot count"
-                onClick={() => setShotCount((v) => Math.max(1, v - 1))}
-              >
-                −
-              </button>
-              <span>{shotCount}</span>
-              <button
-                type="button"
-                disabled={shotCount >= 8}
-                aria-label="Increase shot count"
-                onClick={() => setShotCount((v) => Math.min(8, v + 1))}
-              >
-                +
-              </button>
-              <span className="variants-stepper__hint">
-                1–8 narrative beats (planner picks roots vs continuations)
-              </span>
+            <span className="gen-dialog__label">Grid</span>
+            <div className="aspect-chip-row">
+              {(["2x2", "3x3"] as const).map((g) => (
+                <button
+                  key={g}
+                  type="button"
+                  className={`aspect-chip${storyboardGrid === g ? " aspect-chip--active" : ""}`}
+                  onClick={() => setStoryboardGrid(g)}
+                  title={
+                    g === "2x2"
+                      ? "4 panels (2 rows × 2 cols)"
+                      : "9 panels (3 rows × 3 cols)"
+                  }
+                >
+                  {g === "2x2" ? "2×2 · 4 panels" : "3×3 · 9 panels"}
+                </button>
+              ))}
             </div>
+            <p className="gen-dialog__hint">
+              Storyboard renders as a SINGLE composite image — Flow draws
+              the whole grid as one picture. The topic field above is your
+              story (e.g. <code>Rùa và Thỏ</code>); the locked template
+              wraps it for you.
+            </p>
           </div>
         )}
 
