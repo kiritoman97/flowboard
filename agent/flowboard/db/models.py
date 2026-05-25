@@ -173,3 +173,29 @@ class BoardFlowProject(SQLModel, table=True):
     board_id: int = Field(primary_key=True, foreign_key="board.id")
     flow_project_id: str
     created_at: datetime = Field(default_factory=_utcnow)
+
+
+class ExternalLpvVideoJob(SQLModel, table=True):
+    """External LibaryPromptVideo image-to-video job mapping.
+
+    Flowboard's native request table remains the source of truth for provider
+    execution. This table stores the stable LPV-facing handle and the final
+    storage handoff metadata without changing the canvas/node model.
+    """
+
+    id: Optional[int] = Field(default=None, primary_key=True)
+    job_key: str = Field(index=True)
+    run_id: str = Field(default="", index=True)
+    product_id: str = Field(default="", index=True)
+    concept_id: str = Field(default="", index=True)
+    scene_key: str = Field(default="", index=True)
+    board_id: Optional[int] = Field(default=None, foreign_key="board.id", index=True)
+    flow_project_id: str = ""
+    uploaded_media_id: Optional[str] = None
+    request_id: Optional[int] = Field(default=None, foreign_key="request.id", index=True)
+    flow_media_id: Optional[str] = None
+    storage_object_key: Optional[str] = None
+    storage_url: Optional[str] = None
+    storage_error: Optional[str] = None
+    created_at: datetime = Field(default_factory=_utcnow)
+    updated_at: datetime = Field(default_factory=_utcnow)
